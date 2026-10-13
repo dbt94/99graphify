@@ -29,6 +29,14 @@ def test_audit_coverage_passes():
     assert problems == [], "\n".join(problems)
 
 
+def test_update_reference_does_not_dump_incremental_corpus():
+    """--update must not print every corpus path into the agent context (#3944)."""
+    text = (gen.FRAGMENTS_DIR / "references" / "shared" / "update.md").read_text(encoding="utf-8")
+    assert "print(json.dumps(result, indent=2, ensure_ascii=False))" not in text
+    assert "new_by_type" in text
+    assert "graphify-out/.graphify_incremental.json" in text
+
+
 def test_check_passes():
     """The committed artifacts and the expected/ snapshot match a fresh render.
 
@@ -750,15 +758,17 @@ def test_always_on_roundtrip_is_byte_faithful():
         "When the user types `/graphify`, use the installed graphify skill or instructions "
         "before doing anything else."
     )
-    # The registry holds exactly the #1530 substitution plus the graph-diff rule.
+    # The registry holds the #1530 substitution plus the query-first and graph-diff rules.
     assert gen.ALWAYS_ON_SANCTIONED_EDITS["_AGENTS_MD_SECTION"] == (
         (old_instruction, new_instruction),
+        gen._QUERY_FIRST_EDIT,
         gen._GRAPH_DIFF_EDIT,
     )
     baseline_agents = gen._always_on_constants(gen.ALWAYS_ON_BASELINE_REF)["_AGENTS_MD_SECTION"]
     # The ONLY divergences from the frozen baseline are the sanctioned edits —
     # any other byte drift would have surfaced as a problem above.
     assert old_instruction in baseline_agents
+    baseline_agents = baseline_agents.replace(*gen._QUERY_FIRST_EDIT)
     old_rule, new_rule = gen._GRAPH_DIFF_EDIT
     assert baseline_agents.replace(old_instruction, new_instruction).replace(old_rule, new_rule) == rendered_agents
     assert "`skill` tool" not in rendered_agents
